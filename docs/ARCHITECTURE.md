@@ -68,7 +68,7 @@ OpenAnstruk-2D/
 │   │   ├── flyout-panel.tsx           # Thin router (props interface + FlyoutContent switch)
 │   │   ├── flyout-shared.tsx          # Simple flat SectionSelect (used by Model-tab tools)
 │   │   ├── status-bar.tsx             # Bottom status bar
-│   │   ├── grid-units-panel.tsx       # Grid spacing + unit system panel
+│   │   ├── settings-panel.tsx         # Settings panel: units, grid, view toggles
 │   │   ├── theme-provider.tsx         # shadcn dark/light theme wrapper
 │   │   └── ui/                        # shadcn primitives + project atoms
 │   │       ├── numeric-input.tsx      # Controlled numeric input
@@ -288,7 +288,11 @@ M(x) = M1 − V1·x  + q1·x²/2 + (q2−q1)·x³/(6L)
 
 where `x` is distance from the i-end along the member.
 
-> **Note:** `solver.ts` numerical math (`localStiffness`, `transformMatrix`, FEF formula, end-force extraction `N1=-f[0], V1=-f[1], M1=-f[2]`) is byte-stable. Only `gaussSolve` (singular-pivot tracking + tightened tolerance, v1.0.6) and the `SolverResult` failure branch have changed. If a diagram looks wrong, suspect the display layer (local-2 direction in the drawer, invert toggle) before the solver.
+> **Note:** `solver.ts` numerical math (`transformMatrix`, FEF formula, end-force extraction `N1=-f[0], V1=-f[1], M1=-f[2]`) is byte-stable. `localStiffness` gained an optional `GAs` parameter in v1.0.9 (Timoshenko, below) — with `GAs=0` it reduces algebraically to the original Euler matrix. Only `gaussSolve` (singular-pivot tracking + tightened tolerance, v1.0.6) and the `SolverResult` failure branch have otherwise changed. If a diagram looks wrong, suspect the display layer (local-2 direction in the drawer, invert toggle) before the solver.
+
+### Shear Deformation (Timoshenko, v1.0.9)
+
+Opt-in shear flexibility, toggled by **"Enable Shear Deformation"** in the Settings panel (default off). `localStiffness(EA, EI, L, GAs = 0)` computes `Φ = 12·EI/(GAs·L²)` and scales the bending block by `1/(1+Φ)` (rotational diagonal `(4+Φ)EI/(L(1+Φ))`, carry-over `(2−Φ)EI/(L(1+Φ))`); axial terms unchanged. `GAs=0 ⇒ Φ=0`, so the off path is byte-identical to Euler. `analyze(model, { shearDeformation })` resolves per-member `GAs = G·As` where `As = Aκ2·1e-6` and `G = (sec.derived?.G ?? shearModulus(E, ν))·1000`; a missing/≤0 `Aκ2` falls back to Euler for that member. Applies through `condensedTrussElement` too, so trusses honor the toggle. FEF, recovery, and diagrams are untouched. Verified vs SAP2000 on Example 5 (`validation/shear_deformation_example5.md`).
 
 ### Analysis Diagnostics & Lazy Solve (v1.0.6)
 
